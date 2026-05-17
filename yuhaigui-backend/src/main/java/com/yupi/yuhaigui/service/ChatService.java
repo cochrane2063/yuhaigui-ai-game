@@ -1,7 +1,6 @@
 package com.yupi.yuhaigui.service;
 
-import com.volcengine.ark.runtime.model.completion.chat.ChatMessage;
-import com.yupi.yuhaigui.model.ChatRoom;
+import com.yupi.yuhaigui.dto.ChatRoomDTO;
 
 import java.util.List;
 import java.util.Map;
@@ -18,12 +17,12 @@ public interface ChatService {
      * @param message 用户自己输入的消息
      * @return AI 的结果
      */
-    String doChat(long roomId, String message);
+    String doChat(String Username, long roomId, String message);
 
     /**
      * 获取对话列表
      *
      * @return 聊天室列表
      */
-    List<ChatRoom> getChatRoomList();
+    List<ChatRoomDTO> getChatRoomList(String username);
 }

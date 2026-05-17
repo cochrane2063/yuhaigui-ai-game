@@ -5,7 +5,7 @@ import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 
 @SpringBootApplication
-@MapperScan("com.yupi.yuhaigui.mapper")
+@MapperScan("com.yupi.yuhaigui.database.mapper")
 public class YuhaiguiApplication {
 
     public static void main(String[] args) {

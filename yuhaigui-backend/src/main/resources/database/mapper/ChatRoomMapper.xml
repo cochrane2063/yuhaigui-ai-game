@@ -1,0 +1,48 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.yupi.yuhaigui.database.mapper.ChatRoomMapper">
+
+    <resultMap id="ChatRoomResultMap" type="com.yupi.yuhaigui.database.model.ChatRoom">
+        <id property="sessionId" column="session_id"/>
+        <result property="username" column="username"/>
+        <result property="roomId" column="room_id"/>
+    </resultMap>
+
+    <insert id="insert" parameterType="com.yupi.yuhaigui.database.model.ChatRoom" useGeneratedKeys="true" keyProperty="sessionId">
+        INSERT INTO chat_room (username, room_id)
+        VALUES (#{username}, #{roomId})
+    </insert>
+
+    <select id="selectById" resultMap="ChatRoomResultMap" parameterType="int">
+        SELECT session_id, username, room_id
+        FROM chat_room
+        WHERE session_id = #{sessionId}
+    </select>
+
+    <select id="selectByUsername" resultMap="ChatRoomResultMap" parameterType="string">
+        SELECT session_id, username, room_id
+        FROM chat_room
+        WHERE username = #{username}
+    </select>
+
+    <select id="selectByUsernameAndRoomId" resultMap="ChatRoomResultMap">
+        SELECT session_id, username, room_id
+        FROM chat_room
+        WHERE username = #{username}
+        AND room_id = #{roomId}
+    </select>
+
+    <update id="update" parameterType="com.yupi.yuhaigui.database.model.ChatRoom">
+        UPDATE chat_room
+        SET username = #{username},
+        room_id = #{roomId}
+        WHERE session_id = #{sessionId}
+    </update>
+
+    <delete id="deleteById" parameterType="int">
+        DELETE FROM chat_room WHERE session_id = #{sessionId}
+    </delete>
+
+</mapper>

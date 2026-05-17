@@ -1,13 +1,18 @@
 package com.yupi.yuhaigui.service.impl;
 
-import com.volcengine.ark.runtime.model.completion.chat.ChatMessage;
-import com.volcengine.ark.runtime.model.completion.chat.ChatMessageRole;
+import com.yupi.yuhaigui.dto.ChatRoomDTO;
+import com.yupi.yuhaigui.database.mapper.ChatMessageMapper;
+import com.yupi.yuhaigui.database.mapper.ChatRoomMapper;
+import dev.langchain4j.data.message.AiMessage;
+import dev.langchain4j.data.message.ChatMessage;
 import com.yupi.yuhaigui.manager.AiManager;
 import com.yupi.yuhaigui.model.ChatRoom;
 import com.yupi.yuhaigui.service.ChatService;
+import dev.langchain4j.data.message.SystemMessage;
+import dev.langchain4j.data.message.UserMessage;
+import jakarta.annotation.Resource;
 import org.springframework.stereotype.Service;
 
-import javax.annotation.Resource;
 import java.util.*;
 
 @Service
@@ -16,8 +21,14 @@ public class ChatServiceImpl implements ChatService {
     @Resource
     private AiManager aiManager;
 
+    @Resource
+    private ChatRoomMapper chatRoomMapper;
+
+    @Resource
+    private ChatMessageMapper chatMessageMapper;
+
     // 全局消息映射
-    final Map<Long, List<ChatMessage>> globalMessagesMap = new HashMap<>();
+//    final Map<Long, List<ChatMessage>> globalMessagesMap = new HashMap<>();
 
     /**
      * 聊天
@@ -27,10 +38,10 @@ public class ChatServiceImpl implements ChatService {
      * @return
      */
     @Override
-    public String doChat(long roomId, String message) {
+    public String doChat(String username, long roomId, String message) {
         // 系统预设
         final String systemPrompt = "1. 提供一道海龟汤谜题的“汤面”（故事表面描述）。  \n" +
-                "2. 根据玩家的提问，仅回答“是”、“否”或“与此无关”。  \n" +
+                "2. 根据玩家的提问，仅回答“是”、“否”或“与此无关”，无标点符号。  \n" +
                 "3. 在特定情况下结束游戏并揭示“汤底”（故事真相）。\n" +
                 "游戏流程  \n" +
                 "1. 当玩家输入“开始”时，你需立即提供一道海龟汤谜题的“汤面”。  \n" +
@@ -60,34 +71,45 @@ public class ChatServiceImpl implements ChatService {
                 "● AI 回复（汤底）：\n" +
                 "“这个人曾和同伴在海上遇难，同伴死后，他靠吃同伴的尸体活了下来。餐厅的海龟汤让他意识到自己吃的其实是人肉，因此崩溃自杀。”";
         // 1. 准备消息列表（关联历史上下文）
-        final ChatMessage systemMessage = ChatMessage.builder().role(ChatMessageRole.SYSTEM).content(systemPrompt).build();
-        final ChatMessage userMessage = ChatMessage.builder().role(ChatMessageRole.USER).content(message).build();
+        final ChatMessage systemMessage = SystemMessage.systemMessage(systemPrompt);
+        final ChatMessage userMessage = UserMessage.userMessage(message);
 
-        List<ChatMessage> messages = new ArrayList<>();
         // 首次开始时，需要初始化消息列表，并且额外添加系统消息到记录中
-        if (!message.equals("开始") && globalMessagesMap.isEmpty()) {
-            throw new RuntimeException("请先开始游戏");
+        Map<Long, ChatRoom> chatRoomMap = ChatRoom.load(chatMessageMapper, chatRoomMapper, username);
+        if (!message.equals("开始") && !chatRoomMap.containsKey(roomId)) {
+            return "请先开始游戏";
         }
-        if (message.equals("开始") && !globalMessagesMap.containsKey(roomId)) {
-            globalMessagesMap.put(roomId, messages);
+        ChatRoom chatRoom;
+        if (message.equals("开始") && !chatRoomMap.containsKey(roomId)) {
+            List<ChatMessage> messages = new ArrayList<>();
             messages.add(systemMessage);
+            chatRoom = new ChatRoom(username, roomId,messages);
+            chatRoomMap.put(roomId, chatRoom);
+            ChatRoom.save(chatMessageMapper, chatRoomMapper, chatRoomMap.get(roomId));
         } else {
             // 之后不用重复初始化，而是读取过去的消息列表
-            messages = globalMessagesMap.get(roomId);
+            chatRoom = chatRoomMap.get(roomId);
         }
-        messages.add(userMessage);
+        ChatRoom.insert(chatMessageMapper, chatRoomMapper, chatRoom, userMessage);
 
         // 2. 调用 AI
-        String answer = aiManager.doChat(messages);
+        AiMessage aiMessage = aiManager.doChat(chatRoom.getChatMessageList());
+        for (int i = 0; i < 3; i++) {
+            if (message.equals("开始") || aiMessage.text().contains("游戏已结束")) {
+                break;
+            }
+            if (aiMessage.text().equals("是") || aiMessage.text().equals("否") || aiMessage.text().equals("与此无关")) {
+                break;
+            }
+            List<ChatMessage> messages = chatRoom.getChatMessageList();
+            messages.add(UserMessage.userMessage("请严格按照规则回答，只能是“是”、“否”或“与此无关”，或者在游戏结束时包含“游戏已结束”的消息"));
+            aiMessage = aiManager.doChat(messages);
+        }
 
-        final ChatMessage assistantMessage = ChatMessage.builder().role(ChatMessageRole.ASSISTANT).content(answer).build();
-        messages.add(assistantMessage);
+        ChatRoom.insert(chatMessageMapper, chatRoomMapper, chatRoom, aiMessage);
 
         // 3. 返回消息
-        if (answer.contains("【游戏已结束】")) {
-            globalMessagesMap.remove(roomId);
-        }
-        return answer;
+        return aiMessage.text();
     }
 
     /**
@@ -96,13 +118,12 @@ public class ChatServiceImpl implements ChatService {
      * @return
      */
     @Override
-    public List<ChatRoom> getChatRoomList() {
-        List<ChatRoom> chatRoomList = new ArrayList<>();
-        for (Map.Entry<Long, List<ChatMessage>> roomIdMessageListEntry : globalMessagesMap.entrySet()) {
-            ChatRoom chatRoom = new ChatRoom();
-            chatRoom.setRoomId(roomIdMessageListEntry.getKey());
-            chatRoom.setChatMessageList(roomIdMessageListEntry.getValue());
-            chatRoomList.add(chatRoom);
+    public List<ChatRoomDTO> getChatRoomList(String username) {
+        List<ChatRoomDTO> chatRoomList = new ArrayList<>();
+        Map<Long, ChatRoom> chatRoomMap = ChatRoom.load(chatMessageMapper, chatRoomMapper, username);
+        for (Map.Entry<Long, ChatRoom> roomIdChatRoomEntry : chatRoomMap.entrySet()) {
+            ChatRoom chatRoom = roomIdChatRoomEntry.getValue();
+            chatRoomList.add(ChatRoomDTO.from(chatRoom));
         }
         return chatRoomList;
     }

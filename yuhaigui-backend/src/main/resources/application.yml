@@ -1,5 +1,5 @@
 server:
-  port: 8080
+  port: ${BACKEND_PORT:8080}
   servlet:
     context-path: /api
 # 数据库配置
@@ -8,10 +8,19 @@ spring:
 #  profiles:
 #    active: local
   datasource:
-    driver-class-name: com.mysql.cj.jdbc.Driver
-    url: jdbc:mysql://localhost:3306/yuhaigui?useUnicode=true&characterEncoding=utf-8&serverTimezone=Asia/Shanghai
-    username: root
-    password: 123456
+    driver-class-name: org.mariadb.jdbc.Driver
+    url: jdbc:mariadb://${DATABASE_HOST:}:${DATABASE_PORT:}/${DATABASE_NAME:}?useUnicode=true&characterEncoding=utf-8&serverTimezone=Asia/Shanghai
+    username: ${DATABASE_USERNAME:}
+    password: ${DATABASE_PASSWORD:}
+
+security:
+  jwt:
+    secret: ${JWT_SECRET:}
+    expirationDays: 7
+
+mybatis:
+  mapper-locations: classpath:/database/mapper/*.xml
+  type-aliases-package: com.yupi.yuhaigui.database.model
 # 接口文档
 knife4j:
   enable: true
@@ -25,4 +34,6 @@ knife4j:
           - com.yupi.yuhaigui.controller
 # 接入 AI 大模型
 ai:
-  apiKey: 填写你自己的 API Key
+  apiKey: ${AI_API_KEY:}
+  baseUrl: ${AI_BASE_URL:}
+  model: ${AI_MODEL:}

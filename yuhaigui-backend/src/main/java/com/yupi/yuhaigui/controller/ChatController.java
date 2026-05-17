@@ -1,13 +1,14 @@
 package com.yupi.yuhaigui.controller;
 
 
-import com.yupi.yuhaigui.model.ChatRoom;
+import com.yupi.yuhaigui.dto.ChatRoomDTO;
 import com.yupi.yuhaigui.service.ChatService;
+import jakarta.annotation.Resource;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.RestController;
 
 import org.springframework.web.bind.annotation.*;
 
-import javax.annotation.Resource;
 import java.util.List;
 
 /**
@@ -28,8 +29,8 @@ public class ChatController {
      * @return AI 的回复
      */
     @PostMapping("/{roomId}/send")
-    public String doChat(@PathVariable long roomId, @RequestParam String message) {
-        return chatService.doChat(roomId, message);
+    public String doChat(@AuthenticationPrincipal String username, @PathVariable("roomId") long roomId, @RequestParam("message") String message) {
+        return chatService.doChat(username, roomId, message);
     }
 
     /**
@@ -38,7 +39,7 @@ public class ChatController {
      * @return 聊天室列表
      */
     @GetMapping("/rooms")
-    public List<ChatRoom> getChatRoomList() {
-        return chatService.getChatRoomList();
+    public List<ChatRoomDTO> getChatRoomList(@AuthenticationPrincipal String username) {
+        return chatService.getChatRoomList(username);
     }
 }
