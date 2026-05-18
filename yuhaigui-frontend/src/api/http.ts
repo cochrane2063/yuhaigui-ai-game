@@ -1,7 +1,10 @@
 import axios from 'axios'
 
+const runtimeBase =
+  (window as any).__APP_CONFIG__?.API_BASE_URL || import.meta.env.VITE_API_BASE_URL;
+
 const http = axios.create({
-  baseURL: import.meta.env.VITE_API_BASE_URL,
+  baseURL: runtimeBase,
 })
 
 http.interceptors.request.use((config) => {
