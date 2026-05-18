@@ -9,7 +9,7 @@ window.__APP_CONFIG__ = {
 EOF
 
 envsubst '${BACKEND_HOST} ${BACKEND_PORT}' \
-  < /etc/nginx/templates/nginx.conf.template \
+  < /etc/nginx/conf.d/default.conf \
   > /etc/nginx/conf.d/default.conf
 
 exec nginx -g "daemon off;"
